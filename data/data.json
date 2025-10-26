@@ -1,0 +1,76 @@
+{
+  "farmacias": [
+    {
+      "id": "farm1",
+      "name": "Drogaria Central",
+      "cnpj": "12.345.678/0001-90",
+      "address": "Av. Central, 100",
+      "phone": "11999990000",
+      "admUserId": "adm1"
+    }
+  ],
+  "users": [
+    { "id": "cli1", "name": "Ana Silva", "role": "cliente", "cpf": "11111111111", "phone": "11988887777" },
+    { "id": "adm1", "name": "Adm Farm", "role": "adm", "cpf": "", "phone": "" },
+    { "id": "ent1", "name": "Carlos Moto", "role": "entregador", "cpf": "22222222222", "vehicleType": "moto", "plate": "ABC1X234" }
+  ],
+  "products": [
+    {
+      "id": "p1",
+      "name": "ACCU CHEK",
+      "price": 7.5,
+      "farmaciaId": "farm1",
+      "stock": 12,
+      "image": "assets/images/image_medicamento_1.webp",
+      "category": "medicamentos"
+    },
+    {
+      "id": "p2",
+      "name": "Perspirex 750mg",
+      "price": 9.9,
+      "farmaciaId": "farm1",
+      "stock": 8,
+      "image": "assets/images/image_medicamento_2.webp",
+      "category": "medicamentos"
+    },
+    {
+      "id": "p3",
+      "name": "Tylenol 500mg",
+      "price": 20,
+      "farmaciaId": "farm1",
+      "stock": 5,
+      "image": "assets/images/image_medicamento_3.webp",
+      "category": "ofertas",
+      "discount": 0.15
+    },
+    {
+      "id": "p4",
+      "name": "Doril 400mg",
+      "price": 11.5,
+      "farmaciaId": "farm1",
+      "stock": 10,
+      "image": "assets/images/image_medicamento_4.webp",
+      "category": "medicamentos"
+    },
+    {
+      "id": "p5",
+      "name": "Soro Fisiológico 0,9%",
+      "price": 6.9,
+      "farmaciaId": "farm1",
+      "stock": 20,
+      "image": "assets/images/image_medicamento_5.webp",
+      "category": "ofertas",
+      "discount": 0.1
+    },
+    {
+      "id": "p6",
+      "name": "Folifer",
+      "price": 14.0,
+      "farmaciaId": "farm1",
+      "stock": 15,
+      "image": "assets/images/image_medicamento_6.webp",
+      "category": "medicamentos"
+    }
+  ],
+  "orders": []
+}

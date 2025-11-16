@@ -1,20 +1,40 @@
-# ⚙️ Instalação
+# FlashFarma App (Branch: sem-backend)
 
-# 1. Clone o repositório
+Este é o projeto FlashFarma na versão **sem backend**, desenvolvido em React Native usando Expo.  
+
+---
+
+## ⚙️ Pré-requisitos
+
+- Node.js (recomenda-se versão >= 18)
+- npm ou Yarn
+- Expo CLI (`npm install -g expo-cli`)
+
+---
+
+## 🛠️ Instalação
+
+1. **Clone o repositório**
+```
 git clone https://github.com/Gabez19/flashfarmaApp.git
+``` 
 
-# 2. Acesse a pasta do projeto
+2. **Acesse a branch sem-backend**
+``` 
 cd flashfarmaApp
+git checkout sem-backend
+``` 
 
-# 3. Instale as dependências
+3. **Instale as dependências**
+``` 
 npm install
-# ou, se preferir usar Yarn:
+# ou
 yarn install
+``` 
 
-# 4. Verifique se o Expo CLI está instalado globalmente
-npm install -g expo-cli
-
-# 5. Inicie o servidor de desenvolvimento
+4. **Inicie o servidor de desenvolvimento**
+``` 
 npm start
-# ou:
+# ou
 npx expo start
+``` 

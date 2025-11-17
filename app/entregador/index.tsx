@@ -1,3 +1,4 @@
+// app/entregador/index.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -104,10 +105,14 @@ export default function DashboardEntregador() {
             <Text style={styles.summaryLabel}>Hoje</Text>
           </TouchableOpacity>
 
-          <View style={styles.summaryCard}>
+          {/* Card de Ganhos clicável */}
+          <TouchableOpacity
+            style={styles.summaryCard}
+            onPress={() => router.push('/entregador/ResgateSaldo')}
+          >
             <Text style={styles.summaryNumber}>R$ 250</Text>
             <Text style={styles.summaryLabel}>Ganhos</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Título + botão atualizar */}

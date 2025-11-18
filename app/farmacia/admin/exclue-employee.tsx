@@ -65,11 +65,11 @@ export default function ExclueEmployee() {
               <Text style={styles.menuItemText}>Dashboard</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push("/farmacia/admin/ManageCatalog"); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push("/farmacia/admin/manage-catalog"); }}>
               <Text style={styles.menuItemText}>Gerenciar Catálogo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push("/farmacia/admin/OrderList"); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push("/farmacia/admin/order-list"); }}>
               <Text style={styles.menuItemText}>Gerenciar Pedidos</Text>
             </TouchableOpacity>
 

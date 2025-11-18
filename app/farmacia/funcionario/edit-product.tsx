@@ -1,5 +1,5 @@
 // app/farmacia/funcionario/edit-product.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,27 +9,137 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Alert,
+  ActivityIndicator
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const LOGO_IMAGE = require("../../../assets/images/logo-flashfarma.png");
 const { width } = Dimensions.get("window");
 const MENU_WIDTH = Math.min(320, Math.round(width * 0.72));
+// !!! ATUALIZE ESTE IP !!!
+const API_URL = 'http://192.168.0.182:3000/produtos'; 
+
+// Interface do Produto (simplificada)
+interface Produto {
+  id: number;
+  nome: string;
+  nome_farmacia: string;
+  descricao: string;
+  preco: number;
+  quantidade_estoque: number;
+  imagem_url: string;
+}
 
 export default function EditProduct() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const productId = params.id as string; // Assume que o ID vem como string
+  
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const [name, setName] = useState("Dipirona Sódica");
-  const [description, setDescription] = useState("Medicamento para dor e febre");
-  const [price, setPrice] = useState("12,50");
-  const [stock, setStock] = useState("200");
+  // Estados dos campos
+  const [name, setName] = useState("");
+  const [farmaciaName, setFarmaciaName] = useState(""); // NOVO CAMPO
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [quantidadeEstoque, setQuantidadeEstoque] = useState(""); // RENOMEADO (era 'stock')
   const [image, setImage] = useState("");
+
+  // 1. FUNÇÃO PARA CARREGAR DADOS EXISTENTES (GET)
+  const fetchProduct = async (id: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/${id}`);
+      const data = await response.json();
+
+      if (response.ok && data.id) {
+        // Preencher os estados com os dados da API
+        setName(data.nome);
+        setFarmaciaName(data.nome_farmacia || "");
+        setDescription(data.descricao || "");
+        setPrice(data.preco.toFixed(2).replace('.', ',')); // Formatar para exibição
+        setQuantidadeEstoque(data.quantidade_estoque.toString());
+        setImage(data.imagem_url || "");
+      } else {
+        Alert.alert("Erro", data.erro || "Produto não encontrado.");
+        router.back();
+      }
+    } catch (error) {
+      console.error('Erro ao buscar produto:', error);
+      Alert.alert("Erro", "Não foi possível carregar os dados do produto.");
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carregar dados ao iniciar a tela, se o ID existir
+  useEffect(() => {
+    if (productId) {
+      fetchProduct(productId);
+    } else {
+      Alert.alert("Erro", "ID do produto não fornecido.");
+      router.back();
+    }
+  }, [productId]);
+
+  // 2. FUNÇÃO PARA ATUALIZAR DADOS (PUT)
+  const handleUpdateProduct = async () => {
+    const precoFloat = parseFloat(price.replace(',', '.'));
+    const estoqueInt = parseInt(quantidadeEstoque, 10);
+
+    if (!name || !farmaciaName || !price || isNaN(precoFloat)) {
+      Alert.alert("Erro", "Nome, Nome da Farmácia e Preço são obrigatórios.");
+      return;
+    }
+
+    const updatedProduct = {
+      nome: name,
+      nome_farmacia: farmaciaName,
+      descricao: description,
+      preco: precoFloat,
+      quantidade_estoque: isNaN(estoqueInt) ? 0 : estoqueInt,
+      imagem_url: image || null,
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProduct),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Sucesso", `Produto atualizado!`);
+        router.back(); 
+      } else {
+        Alert.alert("Erro", data.erro || "Falha ao atualizar produto.");
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar produto:', error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+    }
+  };
+
+
+  if (loading) {
+     return (
+        <View style={styles.centerContainer}>
+           <ActivityIndicator size="large" color="#13856B" />
+           <Text style={{ marginTop: 10 }}>Carregando produto ID: {productId}...</Text>
+        </View>
+     );
+  }
 
   return (
     <View style={styles.container}>
+      {/* ... Header e Menu (sem alterações no layout) ... */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Editar Produto</Text>
+        <Text style={styles.headerTitle}>Editar Produto (ID: {productId})</Text>
 
         <TouchableOpacity style={styles.hamburger} onPress={() => setMenuOpen(true)}>
           <View style={styles.bar} />
@@ -46,7 +156,14 @@ export default function EditProduct() {
             value={name}
             onChangeText={setName}
           />
-
+          {/* NOVO CAMPO: NOME DA FARMÁCIA */}
+          <TextInput
+            placeholder="Nome da Farmácia"
+            style={styles.input}
+            value={farmaciaName}
+            onChangeText={setFarmaciaName}
+          />
+          
           <TextInput
             placeholder="Descrição"
             style={[styles.input, { height: 80, textAlignVertical: "top" }]}
@@ -58,7 +175,7 @@ export default function EditProduct() {
           <View style={styles.row}>
             <TextInput
               placeholder="Preço"
-              keyboardType="decimal-pad"
+              keyboardType="numeric"
               style={[styles.input, styles.half]}
               value={price}
               onChangeText={setPrice}
@@ -67,15 +184,15 @@ export default function EditProduct() {
               placeholder="Estoque"
               keyboardType="numeric"
               style={[styles.input, styles.half]}
-              value={stock}
-              onChangeText={setStock}
+              value={quantidadeEstoque} // ESTADO ATUALIZADO
+              onChangeText={setQuantidadeEstoque}
             />
           </View>
 
           <TextInput
             placeholder="URL da Imagem"
             style={styles.input}
-            value={image}
+            value={image} // ESTADO ATUALIZADO
             onChangeText={setImage}
           />
 
@@ -86,59 +203,60 @@ export default function EditProduct() {
 
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={() => router.push("/farmacia/funcionario/exclue-product")}
+              onPress={() => router.push({ pathname: "/farmacia/funcionario/exclue-product", params: { id: productId } })}
             >
               <Text style={styles.deleteText}>Excluir</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.saveButton}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleUpdateProduct}>
               <Text style={styles.saveText}>Salvar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
+      {/* ... CÓDIGO DO MENU (sem alterações) ... */}
       {menuOpen && (
-        <>
-          <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
-          <View style={styles.menu}>
-            <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
-              <Text style={styles.closeX}>✕</Text>
-            </TouchableOpacity>
+         <>
+           <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
+           <View style={styles.menu}>
+             <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
+               <Text style={styles.closeX}>✕</Text>
+             </TouchableOpacity>
 
-            <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
+             <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario");
-              }}
-            >
-              <Text style={styles.menuItemText}>Dashboard</Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario");
+               }}
+             >
+               <Text style={styles.menuItemText}>Dashboard</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario/add-product");
-              }}
-            >
-              <Text style={styles.menuItemText}>Adicionar Produto</Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario/add-product");
+               }}
+             >
+               <Text style={styles.menuItemText}>Adicionar Produto</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario/edit-product");
-              }}
-            >
-              <Text style={styles.menuItemText}>Editar Produto</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario/edit-product");
+               }}
+             >
+               <Text style={styles.menuItemText}>Editar Produto</Text>
+             </TouchableOpacity>
+           </View>
+         </>
       )}
     </View>
   );
@@ -146,6 +264,7 @@ export default function EditProduct() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF", paddingTop: 18, paddingHorizontal: 18 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' }, // NOVO ESTILO
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerTitle: { fontSize: 18, fontWeight: "600" },
   hamburger: { width: 36, height: 36, justifyContent: "center", alignItems: "center" },

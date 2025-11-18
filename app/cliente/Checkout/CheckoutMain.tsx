@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { // Adicionado useState
+import {
   View,
   Text,
   TouchableOpacity,
@@ -10,270 +10,304 @@ import { // Adicionado useState
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Ionicons from 'react-native-vector-icons/Ionicons'; 
-// CAMINHO CORRIGIDO: Voltando dois níveis para acessar 'contexts'
-import { useCart, CartItem } from '../../contexts/CartContext'; 
-
-// =======================================================
-// MAPA DE IMAGENS (reutilizado)
-// =======================================================
-// NOTA: Em um ambiente real, 'require' funcionaria para assets locais. 
-// Neste contexto de visualização única, as imagens locais serão ignoradas, 
-// mas o mapeamento é mantido como no seu código original.
-const ProductImages: { [key: string]: any } = {
-  "assets/images/image_medicamento_1.webp": require('../../../assets/images/image_medicamento_1.webp'),
-  "assets/images/image_medicamento_2.webp": require('../../../assets/images/image_medicamento_2.webp'),
-  "assets/images/image_medicamento_3.webp": require('../../../assets/images/image_medicamento_3.webp'),
-  "assets/images/image_medicamento_4.webp": require('../../../assets/images/image_medicamento_4.webp'),
-  "assets/images/image_medicamento_5.webp": require('../../../assets/images/image_medicamento_5.webp'),
-  "assets/images/image_medicamento_6.webp": require('../../../assets/images/image_medicamento_6.webp'),
-};
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useCart, CartItem } from '../../contexts/CartContext';
 
 const windowWidth = Dimensions.get('window').width;
 
-// Componente para exibir um produto no resumo do checkout
+// ============================================================================
+// COMPONENTE: CHECKOUT PRODUCT CARD
+// ============================================================================
+
 const CheckoutProductCard = ({ item }: { item: CartItem }) => {
-  // Tenta carregar a imagem local ou usa um placeholder para o web/preview
-  const imageSource = ProductImages[item.image || ''] || { uri: 'https://placehold.co/60x60/f0f0f0/333333?text=IMG' };
-    
+  const imageSource = {
+    uri: 'https://placehold.co/60x60/f0f0f0/333333?text=ITEM',
+  };
+
   return (
-    <View style={checkoutStyles.productCard}>
-      <View style={checkoutStyles.productImagePlaceholder}>
-        <Image 
-          source={imageSource} 
-          style={checkoutStyles.productImage} 
-          resizeMode="contain" 
-        />
+    <View style={styles.productCard}>
+      <View style={styles.productImagePlaceholder}>
+        <Image source={imageSource} style={styles.productImage} resizeMode="contain" />
       </View>
-      <Text style={checkoutStyles.productCardText} numberOfLines={1}>
+      <Text style={styles.productCardText} numberOfLines={1}>
         {item.name}
       </Text>
-      {/* Assumindo que CartItem tem 'qty' e 'price' conforme seu código original */}
-      <Text style={checkoutStyles.productCardTextSmall}>
-        {item.qty} x R$ {item.price.toFixed(2)}
+      <Text style={styles.productCardTextSmall}>
+        {item.qty} x R$ {item.price.toFixed(2).replace('.', ',')}
       </Text>
     </View>
   );
 };
 
+// ============================================================================
+// COMPONENTE PRINCIPAL: CHECKOUT MAIN
+// ============================================================================
 
 export default function CheckoutMain() {
   const router = useRouter();
-  const { cart, total } = useCart();
-  
-  // NOVO ESTADO: Controla a forma de pagamento selecionada
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null); 
-  
-  // Estado original para modal de confirmação (agora usado para erro de seleção)
-  const [showErrorModal, setShowErrorModal] = useState(false); 
+  const { cart, total, clear } = useCart();
 
-  const freteValue = 10.00; // Valor fixo de frete para o exemplo
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+
+  const freteValue = 10.0;
   const totalPagar = total + freteValue;
-  const maxParcelas = 2; // Simulação de parcelamento
+  const maxParcelas = 2;
 
-  // Simulação de endereço
   const enderecoInfo = 'Rua das Flores, 123 - Centro, São Paulo - SP. (12345-678)';
-  const hasAddress = true; // Para controle visual
+  const hasAddress = true;
 
-  // Função para lidar com a seleção do método de pagamento
+  // --------------------------------------------------------------------------
+  // HANDLERS
+  // --------------------------------------------------------------------------
+
   const handleSelectPaymentMethod = (method: string) => {
     setSelectedPaymentMethod(method);
-    // Para simplificar, vamos redirecionar imediatamente para a tela específica 
-    // após a seleção, se for PIX, ou apenas marcar para outros métodos.
     if (method === 'PIX') {
-        router.push('/cliente/Checkout/PaymentPix');
+      console.log('PIX selecionado, navegaria para a tela de geração de QR Code.');
     }
-    // Outros métodos como 'Cartão' e 'Boleto' poderiam ter telas próprias.
   };
 
-  // Simulação de Pedido (Apenas um placeholder para a ação final)
   const handleFinalizarCompra = () => {
     if (cart.length === 0) {
-      console.log("Carrinho vazio! Não é possível finalizar a compra.");
+      console.log('Carrinho vazio! Não é possível finalizar a compra.');
       return;
     }
-    
-    // NOVO: Verificar se um método de pagamento foi selecionado
+
     if (!selectedPaymentMethod) {
-        setShowErrorModal(true);
-        return;
+      setShowErrorModal(true);
+      return;
     }
+
+    // 🔥 Preparar dados do pedido com TODOS os produtos do carrinho
+    const orderData = {
+      id: Math.floor(Math.random() * 10000).toString(),
+      total: totalPagar,
+      deliveryCode: Math.floor(1000 + Math.random() * 9000).toString(),
+      deliveryName: 'João Silva',
+      deliveryVehicle: 'Bicicleta',
+      deliveryPlate: 'ABC-1234',
+      items: cart.map((item) => ({
+        name: item.name,
+        qty: item.qty,
+        price: item.price,
+      })),
+    };
+
+    // Serializar para JSON
+    const orderJSON = JSON.stringify(orderData);
     
-    // Ação Principal: Navegar para a tela de Status de Entrega
-    // CORREÇÃO: Vamos para a nova rota que irá exibir as etapas do pedido.
-    router.replace('/cliente/Orders/DeliveryStatus'); 
+    console.log('📦 Pedido criado:', orderData);
+
+    // Limpar carrinho
+    clear();
+
+    // 🚀 Navegar para DeliveryStatus passando os dados
+    router.replace({
+      pathname: '/cliente/Orders/DeliveryStatus',
+      params: { order: orderJSON },
+    });
   };
 
   return (
-    <View style={checkoutStyles.container}>
+    <View style={styles.container}>
       {/* Header Fixo */}
-      <View style={checkoutStyles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={checkoutStyles.headerTitle}>Informações do Pedido</Text>
+        <Text style={styles.headerTitle}>Informações do Pedido</Text>
       </View>
 
-      <ScrollView contentContainerStyle={checkoutStyles.scrollContent}>
-        
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Seção de Produtos */}
-        <Text style={checkoutStyles.sectionTitle}>Produtos ({cart.length} itens)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={checkoutStyles.productScroll}>
+        <Text style={styles.sectionTitle}>Produtos ({cart.length} itens)</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.productScroll}
+        >
           {cart.map((item: CartItem) => (
             <CheckoutProductCard key={item.id} item={item} />
           ))}
-          {/* Se o carrinho estiver vazio, exibe um placeholder */}
           {cart.length === 0 && (
-            <View style={[checkoutStyles.emptyCard]}>
-              <Text style={checkoutStyles.emptyProductText}>Nenhum item na cesta para checkout.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyProductText}>
+                Nenhum item na cesta para checkout.
+              </Text>
             </View>
           )}
         </ScrollView>
-        
+
         {/* Seção de Entrega */}
-        <View style={checkoutStyles.sectionBlock}>
-          <Text style={checkoutStyles.sectionTitle}>Entrega</Text>
-          <View style={checkoutStyles.deliveryRow}>
-            <TouchableOpacity style={checkoutStyles.deliveryInfoButton}>
-              <Text style={checkoutStyles.deliveryInfoText}>Informações de entrega</Text>
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>Entrega</Text>
+          <View style={styles.deliveryRow}>
+            <TouchableOpacity style={styles.deliveryInfoButton}>
+              <Text style={styles.deliveryInfoText}>Informações de entrega</Text>
             </TouchableOpacity>
-            <View style={checkoutStyles.freteBox}>
-              <Text style={checkoutStyles.freteText}>Frete:</Text>
-              <Text style={checkoutStyles.freteValue}>R$ {freteValue.toFixed(2)}</Text>
+            <View style={styles.freteBox}>
+              <Text style={styles.freteText}>Frete:</Text>
+              <Text style={styles.freteValue}>
+                R$ {freteValue.toFixed(2).replace('.', ',')}
+              </Text>
             </View>
           </View>
         </View>
 
-
         {/* Seção de Endereço */}
-        <View style={checkoutStyles.sectionBlock}>
-          <Text style={checkoutStyles.sectionTitle}>Endereço</Text>
-          <View style={checkoutStyles.addressBox}>
-            <Text style={checkoutStyles.addressText} numberOfLines={2}>
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>Endereço</Text>
+          <View style={styles.addressBox}>
+            <Text style={styles.addressText} numberOfLines={2}>
               {hasAddress ? enderecoInfo : 'Nenhuma informação de endereço cadastrada.'}
             </Text>
-            <TouchableOpacity style={checkoutStyles.changeAddressButton}>
-              <Text style={checkoutStyles.changeAddressText}>Alterar endereço</Text>
+            <TouchableOpacity style={styles.changeAddressButton}>
+              <Text style={styles.changeAddressText}>Alterar endereço</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Seção de Cupons */}
-        <View style={checkoutStyles.sectionBlock}>
-          <Text style={checkoutStyles.sectionTitle}>Cupons</Text>
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>Cupons</Text>
           <TextInput
             placeholder="digite o cupom"
-            style={checkoutStyles.cupomInput}
+            style={styles.cupomInput}
             placeholderTextColor="#999"
           />
         </View>
 
-        {/* Seção de Pagamento ATUALIZADA */}
-        <View style={checkoutStyles.sectionBlock}>
-          <Text style={checkoutStyles.sectionTitle}>Selecionar Forma de Pagamento:</Text>
-          <View style={checkoutStyles.paymentMethodsRow}>
+        {/* Seção de Pagamento */}
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>Selecionar Forma de Pagamento:</Text>
+          <View style={styles.paymentMethodsRow}>
             {['Cartão', 'PIX', 'Boleto', 'Dinheiro'].map((method, index) => (
-              <TouchableOpacity 
-                key={index} 
+              <TouchableOpacity
+                key={index}
                 style={[
-                    checkoutStyles.paymentMethodBox,
-                    // Adiciona estilo de seleção
-                    selectedPaymentMethod === method && checkoutStyles.paymentMethodSelected 
+                  styles.paymentMethodBox,
+                  selectedPaymentMethod === method && styles.paymentMethodSelected,
                 ]}
                 onPress={() => handleSelectPaymentMethod(method)}
               >
-                {/* Usando ícones genéricos para simular as opções */}
-                <Ionicons 
-                    name={
-                        method === 'Cartão' ? 'card-outline' :
-                        method === 'PIX' ? 'qr-code-outline' :
-                        method === 'Boleto' ? 'document-text-outline' :
-                        'cash-outline'
-                    } 
-                    size={24} // Aumentado o tamanho do ícone
-                    color={selectedPaymentMethod === method ? '#24BF38' : '#555'}
+                <Ionicons
+                  name={
+                    method === 'Cartão'
+                      ? 'card-outline'
+                      : method === 'PIX'
+                      ? 'qr-code-outline'
+                      : method === 'Boleto'
+                      ? 'document-text-outline'
+                      : 'cash-outline'
+                  }
+                  size={24}
+                  color={selectedPaymentMethod === method ? '#24BF38' : '#555'}
                 />
-                <Text style={[
-                    checkoutStyles.paymentMethodTextSmall,
-                    selectedPaymentMethod === method && checkoutStyles.paymentMethodTextSelected
-                ]}>{method}</Text>
+                <Text
+                  style={[
+                    styles.paymentMethodTextSmall,
+                    selectedPaymentMethod === method &&
+                      styles.paymentMethodTextSelected,
+                  ]}
+                >
+                  {method}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-          {/* Mostra o método selecionado (apenas visualmente, exceto PIX que navega) */}
-          {selectedPaymentMethod && selectedPaymentMethod !== 'PIX' && (
-              <Text style={checkoutStyles.selectedMethodInfo}>
-                  Forma selecionada: {selectedPaymentMethod}. Clique em Finalizar Compra.
-              </Text>
+          {selectedPaymentMethod && (
+            <Text style={styles.selectedMethodInfo}>
+              Forma de Pagamento selecionada: **{selectedPaymentMethod}**.{' '}
+              {selectedPaymentMethod === 'PIX'
+                ? ' O código será gerado na próxima etapa.'
+                : ' Clique em Finalizar Compra.'}
+            </Text>
           )}
         </View>
-
       </ScrollView>
 
       {/* Total a Pagar e Finalizar Compra (Footer Fixo) */}
-      <View style={checkoutStyles.footer}>
-        <View style={checkoutStyles.totalPayableRow}>
-          <Text style={checkoutStyles.totalPayableLabel}>Total a pagar:</Text>
-          <View style={checkoutStyles.totalPayableValues}>
-            <Text style={checkoutStyles.totalPayableValue}>R$ {totalPagar.toFixed(2)}</Text>
-            <Text style={checkoutStyles.installmentText}>
-              ou em até {maxParcelas}x de R$ {(totalPagar / maxParcelas).toFixed(2)}
+      <View style={styles.footer}>
+        <View style={styles.totalPayableRow}>
+          <Text style={styles.totalPayableLabel}>Total a pagar:</Text>
+          <View style={styles.totalPayableValues}>
+            <Text style={styles.totalPayableValue}>
+              R$ {totalPagar.toFixed(2).replace('.', ',')}
+            </Text>
+            <Text style={styles.installmentText}>
+              ou em até {maxParcelas}x de R${' '}
+              {(totalPagar / maxParcelas).toFixed(2).replace('.', ',')}
             </Text>
           </View>
         </View>
 
-        <View style={checkoutStyles.actionRow}>
-          <TouchableOpacity style={checkoutStyles.couponButtonSmall}>
-            <Text style={checkoutStyles.couponButtonText}>Cupom(?)</Text>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.couponButtonSmall}>
+            <Text style={styles.couponButtonText}>Cupom(?)</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-                checkoutStyles.finalizarButton, 
-                (cart.length === 0 || !selectedPaymentMethod) && { opacity: 0.6 } // Desabilita se não tiver item OU não tiver pagamento
-            ]} 
+              styles.finalizarButton,
+              (cart.length === 0 || !selectedPaymentMethod) && { opacity: 0.6 },
+            ]}
             onPress={handleFinalizarCompra}
             disabled={cart.length === 0 || !selectedPaymentMethod}
           >
-            <Text style={checkoutStyles.finalizarButtonText}>Finalizar Compra</Text>
+            <Text style={styles.finalizarButtonText}>Finalizar Compra</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Modal de Erro de Seleção de Pagamento */}
       {showErrorModal && (
-          <View style={checkoutStyles.modalOverlay}>
-              <View style={checkoutStyles.modalContainer}>
-                  <Ionicons name="alert-circle-outline" size={50} color="#D32F2F" />
-                  <Text style={checkoutStyles.modalTitle}>Atenção!</Text>
-                  <Text style={checkoutStyles.modalMessage}>Por favor, selecione uma forma de pagamento antes de finalizar a compra.</Text>
-                  <TouchableOpacity 
-                      style={[checkoutStyles.modalButton, { backgroundColor: '#D32F2F' }]}
-                      onPress={() => setShowErrorModal(false)}
-                  >
-                      <Text style={checkoutStyles.modalButtonText}>Entendi</Text>
-                  </TouchableOpacity>
-              </View>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Ionicons name="alert-circle-outline" size={50} color="#D32F2F" />
+            <Text style={styles.modalTitle}>Atenção!</Text>
+            <Text style={styles.modalMessage}>
+              Por favor, selecione uma **forma de pagamento** antes de finalizar a
+              compra.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Entendi</Text>
+            </TouchableOpacity>
           </View>
+        </View>
       )}
-
     </View>
   );
 }
 
-// --- ESTILOS ---
+// ============================================================================
+// ESTILOS
+// ============================================================================
 
-const checkoutStyles = StyleSheet.create({
+const styles = StyleSheet.create({
+  // --------------------------------------------------------------------------
+  // Container Principal
+  // --------------------------------------------------------------------------
   container: {
     flex: 1,
     backgroundColor: '#F6FFF6',
   },
+
+  // --------------------------------------------------------------------------
+  // Header
+  // --------------------------------------------------------------------------
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 10,
-    backgroundColor: '#24BF38', // Cor de destaque para o header
+    backgroundColor: '#24BF38',
+  },
+  backButton: {
+    padding: 5,
   },
   headerTitle: {
     fontSize: 18,
@@ -281,10 +315,18 @@ const checkoutStyles = StyleSheet.create({
     marginLeft: 10,
     color: '#fff',
   },
+
+  // --------------------------------------------------------------------------
+  // Scroll Content
+  // --------------------------------------------------------------------------
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 20, 
+    paddingBottom: 20,
   },
+
+  // --------------------------------------------------------------------------
+  // Seções
+  // --------------------------------------------------------------------------
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -304,12 +346,14 @@ const checkoutStyles = StyleSheet.create({
     elevation: 1,
   },
 
+  // --------------------------------------------------------------------------
   // Produtos
+  // --------------------------------------------------------------------------
   productScroll: {
     paddingBottom: 10,
   },
   productCard: {
-    width: 90, 
+    width: 90,
     height: 120,
     marginRight: 10,
     alignItems: 'center',
@@ -356,8 +400,10 @@ const checkoutStyles = StyleSheet.create({
     textAlign: 'center',
     padding: 10,
   },
-  
+
+  // --------------------------------------------------------------------------
   // Entrega
+  // --------------------------------------------------------------------------
   deliveryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -396,7 +442,9 @@ const checkoutStyles = StyleSheet.create({
     marginLeft: 5,
   },
 
+  // --------------------------------------------------------------------------
   // Endereço
+  // --------------------------------------------------------------------------
   addressBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -423,7 +471,9 @@ const checkoutStyles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // --------------------------------------------------------------------------
   // Cupons
+  // --------------------------------------------------------------------------
   cupomInput: {
     borderWidth: 1,
     borderColor: '#ccc',
@@ -433,7 +483,9 @@ const checkoutStyles = StyleSheet.create({
     fontSize: 14,
   },
 
+  // --------------------------------------------------------------------------
   // Pagamento
+  // --------------------------------------------------------------------------
   paymentMethodsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -450,8 +502,8 @@ const checkoutStyles = StyleSheet.create({
     borderColor: '#ddd',
   },
   paymentMethodSelected: {
-    borderColor: '#24BF38', // Borda verde para selecionado
-    backgroundColor: '#E8F5E9', // Fundo mais claro
+    borderColor: '#24BF38',
+    backgroundColor: '#E8F5E9',
     borderWidth: 2,
   },
   paymentMethodTextSmall: {
@@ -465,15 +517,17 @@ const checkoutStyles = StyleSheet.create({
     fontWeight: '700',
   },
   selectedMethodInfo: {
-      marginTop: 10,
-      fontSize: 12,
-      color: '#24BF38',
-      fontWeight: '600',
-      textAlign: 'center',
-      paddingVertical: 5,
+    marginTop: 10,
+    fontSize: 12,
+    color: '#24BF38',
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 5,
   },
 
-  // Footer (Total e Ação)
+  // --------------------------------------------------------------------------
+  // Footer
+  // --------------------------------------------------------------------------
   footer: {
     padding: 16,
     backgroundColor: '#fff',
@@ -536,7 +590,9 @@ const checkoutStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Estilos do Modal (Substitui alert())
+  // --------------------------------------------------------------------------
+  // Modal
+  // --------------------------------------------------------------------------
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -569,7 +625,7 @@ const checkoutStyles = StyleSheet.create({
     marginVertical: 15,
   },
   modalButton: {
-    backgroundColor: '#24BF38',
+    backgroundColor: '#D32F2F',
     padding: 12,
     borderRadius: 8,
     width: '100%',

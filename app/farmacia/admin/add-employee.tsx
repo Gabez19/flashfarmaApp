@@ -80,7 +80,7 @@ export default function AddEmployee() {
               style={styles.menuItem}
               onPress={() => {
                 setMenuOpen(false);
-                router.push("/farmacia/admin/ManageCatalog");
+                router.push("/farmacia/admin/manage-catalog");
               }}
             >
               <Text style={styles.menuItemText}>Gerenciar Catálogo</Text>
@@ -90,7 +90,7 @@ export default function AddEmployee() {
               style={styles.menuItem}
               onPress={() => {
                 setMenuOpen(false);
-                router.push("/farmacia/admin/OrderList");
+                router.push("/farmacia/admin/order-list");
               }}
             >
               <Text style={styles.menuItemText}>Gerenciar Pedidos</Text>

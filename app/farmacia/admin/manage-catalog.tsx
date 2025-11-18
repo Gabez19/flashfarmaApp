@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// app/farmacia/admin/manage-catalog.tsx
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,20 +9,78 @@ import {
   TextInput,
   Dimensions,
   Image,
+  Alert,
+  ActivityIndicator, // Adicionado
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
 const LOGO_IMAGE = require("../../../assets/images/logo-flashfarma.png");
+
+// !!! ATUALIZE ESTE IP !!!
+const API_URL = 'http://192.168.0.182:3000/produtos';
+
+// Interface do Produto baseado na sua API de backend
+interface Product {
+  id: number;
+  nome: string;
+  descricao?: string;
+  preco: number;
+  quantidade: number; // Mapeado para Estoque
+  criado_em: string;
+}
 
 export default function ManageCatalog() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [filterOpen,setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Função para buscar os produtos da API
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      const data = await response.json();
+      setProducts(data.produtos || []);
+    } catch (error) {
+      console.error('Erro ao buscar produtos:', error);
+      Alert.alert("Erro", "Não foi possível carregar o catálogo.");
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Garante que os produtos sejam recarregados ao focar na tela (após adicionar/editar/excluir)
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts();
+    }, [])
+  );
+  
+  // Lógica de filtro (simplificada para o nome)
+  const filteredProducts = products.filter(p => 
+    p.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#13856B" />
+        <Text style={{ marginTop: 10, color: '#555' }}>Carregando catálogo...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Gerenciar Catálogo</Text>
+        <Text style={styles.headerTitle}>Gerenciar Catálogo ({products.length})</Text>
         <TouchableOpacity style={styles.hamburger} onPress={() => setMenuOpen(true)}>
           <View style={styles.bar} />
           <View style={[styles.bar, { width: 18 }]} />
@@ -30,13 +89,20 @@ export default function ManageCatalog() {
       </View>
 
       <View style={styles.searchRow}>
-        <TextInput placeholder="Buscar produto..." style={styles.searchInput} />
-        <TouchableOpacity style={styles.addButton} onPress={() => router.push("/farmacia/admin/add-product")}> 
+        <TextInput 
+          placeholder="Buscar produto..." 
+          style={styles.searchInput} 
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={() => router.push("/farmacia/admin/add-product")}>
           <Text style={styles.addButtonText}>+ Adicionar</Text>
         </TouchableOpacity>
       </View>
+      
+      {/* Filtros (Deixado como MOCK visual, pois a API simples não suporta) */}
       <TouchableOpacity onPress={()=>setFilterOpen(!filterOpen)}>
-        <Text style={{marginTop:8}}>Filtrar por...</Text>
+        <Text style={{marginTop:8, color: '#666'}}>Filtrar por...</Text>
       </TouchableOpacity>
       {filterOpen && (
         <View style={styles.filterBox}>
@@ -48,24 +114,42 @@ export default function ManageCatalog() {
         </View>
       )}
 
+      {/* LISTA DE PRODUTOS DA API */}
       <ScrollView contentContainerStyle={{paddingBottom:40}}>
-        {[
-          { nome: "Dipirona 500mg", info:"R$ 21,45 | Estoque: 420"},
-          { nome: "Vitamina C Efervescente", info:"R$ 23,50 | Estoque: 620"},
-        ].map((p,idx)=>(
-          <View key={idx} style={styles.itemCard}>
-            <View style={styles.thumb}/>
-            <View style={{flex:1}}>
-              <Text style={styles.itemName}>{p.nome}</Text>
-              <Text style={styles.itemInfo}>{p.info}</Text>
+        {filteredProducts.length === 0 ? (
+          <Text style={{marginTop: 20, textAlign: 'center', color: '#888'}}>Nenhum produto encontrado.</Text>
+        ) : (
+          filteredProducts.map((p, idx) => (
+            <View key={p.id} style={styles.itemCard}>
+              <View style={styles.thumb}/> {/* Placeholder para Thumb */}
+              <View style={{flex:1}}>
+                <Text style={styles.itemName}>{p.nome}</Text>
+                <Text style={styles.itemInfo}>
+                  R$ {p.preco.toFixed(2).replace('.', ',')} | Estoque: {p.quantidade}
+                </Text>
+              </View>
+              
+              {/* Botão de Editar */}
+              <TouchableOpacity 
+                style={{paddingHorizontal: 10}}
+                onPress={() => router.push(`/farmacia/admin/edit-product?id=${p.id}&name=${p.nome}`)}
+              > 
+                <Text style={{fontSize:16}}>✎</Text>
+              </TouchableOpacity>
+
+              {/* Botão de Excluir */}
+              <TouchableOpacity 
+                style={{paddingLeft: 10}}
+                onPress={() => router.push(`/farmacia/admin/exclue-product?id=${p.id}&name=${p.nome}`)}
+              > 
+                <Text style={{fontSize:16, color: '#E53935'}}>🗑️</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={()=>router.push("/farmacia/admin/edit-product")}> 
-              <Text style={{fontSize:16}}>✎</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
 
+      {/* SIDE MENU (inalterado) */}
       {menuOpen && (
         <>
           <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
@@ -74,10 +158,13 @@ export default function ManageCatalog() {
               <Text style={styles.closeX}>✕</Text>
             </TouchableOpacity>
             <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
-            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/ManageCatalog");}}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin");}}>
+              <Text style={styles.menuItemText}>Dashboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-catalog");}}>
               <Text style={styles.menuItemText}>Gerenciar Catálogo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/OrderList");}}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/order-list");}}>
               <Text style={styles.menuItemText}>Gerenciar Pedidos</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-users");}}>

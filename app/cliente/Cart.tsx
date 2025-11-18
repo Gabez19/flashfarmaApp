@@ -9,71 +9,87 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// Ícones do React Native
-import Ionicons from 'react-native-vector-icons/Ionicons'; 
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-// Importa o Hook do Contexto (Caminho corrigido)
-import { useCart, CartItem } from '../contexts/CartContext'; 
+import { useCart, CartItem } from '../contexts/CartContext';
 
-// =======================================================
-// MAPA DE IMAGENS: Necessário para carregar as imagens do JSON
-// =======================================================
+// ============================================================================
+// MAPA DE IMAGENS
+// ============================================================================
+
 const ProductImages: { [key: string]: any } = {
-  "assets/images/image_medicamento_1.webp": require('../../assets/images/image_medicamento_1.webp'),
-  "assets/images/image_medicamento_2.webp": require('../../assets/images/image_medicamento_2.webp'),
-  "assets/images/image_medicamento_3.webp": require('../../assets/images/image_medicamento_3.webp'),
-  "assets/images/image_medicamento_4.webp": require('../../assets/images/image_medicamento_4.webp'),
-  "assets/images/image_medicamento_5.webp": require('../../assets/images/image_medicamento_5.webp'),
-  "assets/images/image_medicamento_6.webp": require('../../assets/images/image_medicamento_6.webp'),
+  'assets/images/image_medicamento_1.webp': require('../../assets/images/image_medicamento_1.webp'),
+  'assets/images/image_medicamento_2.webp': require('../../assets/images/image_medicamento_2.webp'),
+  'assets/images/image_medicamento_3.webp': require('../../assets/images/image_medicamento_3.webp'),
+  'assets/images/image_medicamento_4.webp': require('../../assets/images/image_medicamento_4.webp'),
+  'assets/images/image_medicamento_5.webp': require('../../assets/images/image_medicamento_5.webp'),
+  'assets/images/image_medicamento_6.webp': require('../../assets/images/image_medicamento_6.webp'),
 };
 
-// Componente para renderizar cada item do carrinho
+// ============================================================================
+// COMPONENTE: CART ITEM CARD
+// ============================================================================
+
 const CartItemCard = ({ item }: { item: CartItem }) => {
   const { updateQuantity, remove } = useCart();
 
   const handleUpdate = (amount: number) => {
-    // Garante que a quantidade mínima seja 0. O CartProvider remove se for <= 0.
-    const newQty = item.qty + amount; 
+    const newQty = item.qty + amount;
+
+    if (newQty <= 0) {
+      remove(item.id);
+      return;
+    }
+
     updateQuantity(item.id, newQty);
   };
 
-  // Ajustado o path das imagens para corresponder à estrutura
-  const imageSource = ProductImages[item.image || ''] || { uri: 'placeholder' };
+  const imageSource =
+    ProductImages[item.image || ''] || {
+      uri: 'https://placehold.co/60x60/cccccc/333333?text=Imagem',
+    };
 
   return (
-    <View style={cartStyles.card}>
+    <View style={styles.card}>
       {/* Imagem */}
-      <View style={cartStyles.imageContainer}>
-        <Image 
-            source={imageSource} 
-            style={cartStyles.image} 
-            resizeMode="contain" 
-        />
+      <View style={styles.imageContainer}>
+        <Image source={imageSource} style={styles.image} resizeMode="contain" />
       </View>
 
       {/* Detalhes do Produto */}
-      <View style={cartStyles.detailsContainer}>
-        <Text style={cartStyles.productName} numberOfLines={2}>
+      <View style={styles.detailsContainer}>
+        <Text style={styles.productName} numberOfLines={2}>
           {item.name}
         </Text>
-        <Text style={cartStyles.productPrice}>
-          R$ {(item.price * item.qty).toFixed(2)}
+        <Text style={styles.productPrice}>
+          R$ {(item.price * item.qty).toFixed(2).replace('.', ',')}
         </Text>
       </View>
 
       {/* Controles de Quantidade e Remoção */}
-      <View style={cartStyles.controlsContainer}>
-        <TouchableOpacity onPress={() => remove(item.id)} style={cartStyles.removeButton}>
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity
+          onPress={() => remove(item.id)}
+          style={styles.removeButton}
+        >
           <Ionicons name="trash-outline" size={20} color="#D32F2F" />
         </TouchableOpacity>
-        
-        <View style={cartStyles.quantityBox}>
-          <TouchableOpacity onPress={() => handleUpdate(-1)} style={cartStyles.qtyButton}>
-            <Text style={cartStyles.qtyButtonText}>-</Text>
+
+        <View style={styles.quantityBox}>
+          <TouchableOpacity
+            onPress={() => handleUpdate(-1)}
+            style={[styles.qtyButton, styles.qtyButtonLeft]}
+          >
+            <Text style={styles.qtyButtonText}>-</Text>
           </TouchableOpacity>
-          <Text style={cartStyles.qtyText}>{item.qty}</Text>
-          <TouchableOpacity onPress={() => handleUpdate(1)} style={cartStyles.qtyButton}>
-            <Text style={cartStyles.qtyButtonText}>+</Text>
+
+          <Text style={styles.qtyText}>{item.qty}</Text>
+
+          <TouchableOpacity
+            onPress={() => handleUpdate(1)}
+            style={[styles.qtyButton, styles.qtyButtonRight]}
+          >
+            <Text style={styles.qtyButtonText}>+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -81,37 +97,45 @@ const CartItemCard = ({ item }: { item: CartItem }) => {
   );
 };
 
+// ============================================================================
+// COMPONENTE PRINCIPAL: CART
+// ============================================================================
 
 export default function Cart() {
   const router = useRouter();
   const { cart, total } = useCart();
 
   const handleCheckout = () => {
-    // Navega para a tela de Checkout
     router.push('/cliente/Checkout/CheckoutMain');
   };
 
   return (
-    <View style={cartStyles.container}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={cartStyles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={cartStyles.headerTitle}>Minha Cesta ({cart.length} {cart.length === 1 ? 'item' : 'itens'})</Text>
+        <Text style={styles.headerTitle}>
+          Minha Cesta ({cart.length} {cart.length === 1 ? 'item' : 'itens'})
+        </Text>
       </View>
 
       {/* Conteúdo Principal */}
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {cart.length === 0 ? (
-          <View style={cartStyles.emptyCart}>
-            <MaterialCommunityIcons name="basket-off-outline" size={80} color="#ccc" />
-            <Text style={cartStyles.emptyCartText}>Sua cesta está vazia!</Text>
-            <TouchableOpacity 
-                onPress={() => router.push('/cliente')}
-                style={cartStyles.backToHomeButton}
+          <View style={styles.emptyCart}>
+            <MaterialCommunityIcons
+              name="basket-off-outline"
+              size={80}
+              color="#ccc"
+            />
+            <Text style={styles.emptyCartText}>Sua cesta está vazia!</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/cliente')}
+              style={styles.backToHomeButton}
             >
-                <Text style={cartStyles.backToHomeText}>Voltar para a Loja</Text>
+              <Text style={styles.backToHomeText}>Voltar para a Loja</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -119,25 +143,24 @@ export default function Cart() {
             data={cart}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <CartItemCard item={item} />}
-            scrollEnabled={false} // Desabilita o scroll da FlatList dentro da ScrollView
-            contentContainerStyle={cartStyles.list}
+            scrollEnabled={false}
+            contentContainerStyle={styles.list}
           />
         )}
       </ScrollView>
 
       {/* Footer Fixo com Total e Botão */}
       {cart.length > 0 && (
-        <View style={cartStyles.footer}>
-          <View style={cartStyles.totalRow}>
-            <Text style={cartStyles.totalLabel}>Total dos Produtos:</Text>
-            <Text style={cartStyles.totalValue}>R$ {total.toFixed(2)}</Text>
+        <View style={styles.footer}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total dos Produtos:</Text>
+            <Text style={styles.totalValue}>
+              R$ {total.toFixed(2).replace('.', ',')}
+            </Text>
           </View>
-          
-          <TouchableOpacity 
-            style={cartStyles.checkoutButton} 
-            onPress={handleCheckout}
-          >
-            <Text style={cartStyles.checkoutButtonText}>Fazer Pedido</Text>
+
+          <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
+            <Text style={styles.checkoutButtonText}>Fazer Pedido</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -145,13 +168,22 @@ export default function Cart() {
   );
 }
 
-// --- ESTILOS ---
+// ============================================================================
+// ESTILOS
+// ============================================================================
 
-const cartStyles = StyleSheet.create({
+const styles = StyleSheet.create({
+  // --------------------------------------------------------------------------
+  // Container Principal
+  // --------------------------------------------------------------------------
   container: {
     flex: 1,
     backgroundColor: '#F6FFF6',
   },
+
+  // --------------------------------------------------------------------------
+  // Header
+  // --------------------------------------------------------------------------
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -162,18 +194,30 @@ const cartStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  backButton: {
+    padding: 5,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 10,
     color: '#333',
   },
+
+  // --------------------------------------------------------------------------
+  // Scroll e Lista
+  // --------------------------------------------------------------------------
+  scrollContent: {
+    flexGrow: 1,
+  },
   list: {
     paddingHorizontal: 16,
     paddingTop: 10,
   },
-  
+
+  // --------------------------------------------------------------------------
   // Cart Item Card
+  // --------------------------------------------------------------------------
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -215,6 +259,10 @@ const cartStyles = StyleSheet.create({
     color: '#24BF38',
     marginTop: 4,
   },
+
+  // --------------------------------------------------------------------------
+  // Controles
+  // --------------------------------------------------------------------------
   controlsContainer: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -226,14 +274,21 @@ const cartStyles = StyleSheet.create({
   quantityBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
     borderRadius: 5,
+    overflow: 'hidden',
   },
   qtyButton: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     backgroundColor: '#eee',
+  },
+  qtyButtonLeft: {
+    borderRightWidth: 1,
+    borderColor: '#ccc',
+  },
+  qtyButtonRight: {
+    borderLeftWidth: 1,
+    borderColor: '#ccc',
   },
   qtyButtonText: {
     fontSize: 16,
@@ -245,7 +300,9 @@ const cartStyles = StyleSheet.create({
     fontSize: 14,
   },
 
+  // --------------------------------------------------------------------------
   // Footer
+  // --------------------------------------------------------------------------
   footer: {
     padding: 16,
     backgroundColor: '#fff',
@@ -279,7 +336,9 @@ const cartStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // --------------------------------------------------------------------------
   // Carrinho Vazio
+  // --------------------------------------------------------------------------
   emptyCart: {
     flex: 1,
     justifyContent: 'center',
@@ -302,5 +361,5 @@ const cartStyles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
 });

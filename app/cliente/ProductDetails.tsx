@@ -1,106 +1,120 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-  ImageStyle,
+    View,
+    Text,
+    Image,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-// Importa ícones para um visual mais rico
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-// CORREÇÃO AQUI: Ajuste no caminho para subir um nível (..) e acessar a pasta contexts
 import { useCart, CartItem } from '../contexts/CartContext';
 
-// =======================================================
-// INTERFACES E CONFIGURAÇÃO (Duplicado de HomeCliente.tsx para tipagem)
-// =======================================================
+// !!! ATUALIZE ESTE IP com o seu IP local ou URL do servidor !!!
+const API_URL = 'http://192.168.0.182:3000/produtos';
 
-interface DataModule {
-    products: Product[];
-    farmacias: Farmacia[];
-    users: any[];
-    orders: any[];
-}
+// =======================================================
+// INTERFACES E CONFIGURAÇÃO (API-DRIVEN)
+// =======================================================
 
 interface Product {
-    id: string;
-    name: string;
-    price: number;
-    farmaciaId: string;
-    stock: number;
-    image: string; // Caminho da imagem no data.json
-    category: string;
-    description?: string; // Adicionado para garantir tipagem da descrição
-    discount?: number;
+    id: string; 
+    name: string; // Mapeado de 'nome'
+    price: number; // Mapeado de 'preco'
+    descricao: string; // Mapeado de 'descricao'
+    
+    // CAMPOS DA API:
+    nome_farmacia: string; // Nome da farmácia
+    quantidade_estoque: number; // Estoque
+    imagem_url: string; // URL da imagem
+    
+    // Mapeamento e Mocks de UI:
+    description: string; 
+    discount?: number; 
 }
-
-interface Farmacia {
-    id: string;
-    name: string;
-}
-
-// Mapeamento de imagens (Importante para React Native com require)
-const ProductImages: { [key: string]: any } = {
-    "assets/images/image_medicamento_1.webp": require('../../assets/images/image_medicamento_1.webp'),
-    "assets/images/image_medicamento_2.webp": require('../../assets/images/image_medicamento_2.webp'),
-    "assets/images/image_medicamento_3.webp": require('../../assets/images/image_medicamento_3.webp'),
-    "assets/images/image_medicamento_4.webp": require('../../assets/images/image_medicamento_4.webp'),
-    "assets/images/image_medicamento_5.webp": require('../../assets/images/image_medicamento_5.webp'),
-    "assets/images/image_medicamento_6.webp": require('../../assets/images/image_medicamento_6.webp'),
-};
 
 export default function ProductDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { add } = useCart(); // Hook para adicionar ao carrinho
+    const { add } = useCart(); 
 
     const [produto, setProduto] = useState<Product | null>(null);
-    const [farmacias, setFarmacias] = useState<Farmacia[]>([]);
     const [loading, setLoading] = useState(true);
+    // NOVO ESTADO: Quantidade selecionada pelo usuário
+    const [selectedQty, setSelectedQty] = useState(1);
 
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                // Carrega o data.json de forma assíncrona
-                const module = await import('../../data/data.json');
-                const data = module.default as unknown as DataModule;
+        const loadProductDetails = async () => {
+            if (!id) {
+                setLoading(false);
+                return;
+            }
 
-                // Encontra o produto e as farmácias
-                const foundProduct = data.products.find(p => p.id === id);
-                setProduto(foundProduct || null);
-                setFarmacias(data.farmacias);
+            try {
+                const response = await fetch(`${API_URL}/${id}`);
+                if (response.status === 404) {
+                    setProduto(null); 
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                const data = await response.json();
+
+                const productId = Number(data.id);
+                const estoqueInicial = data.quantidade_estoque || 0;
+
+                const mappedProduct: Product = {
+                    id: String(data.id),
+                    name: data.nome,
+                    price: data.preco,
+                    descricao: data.descricao || 'Sem descrição detalhada.',
+                    nome_farmacia: data.nome_farmacia || 'Farmácia Indisponível',
+                    quantidade_estoque: estoqueInicial,
+                    imagem_url: data.imagem_url, 
+                    description: data.descricao || 'Sem descrição detalhada disponível.', 
+                    discount: productId % 2 === 0 ? 0.10 : undefined, 
+                };
+                
+                setProduto(mappedProduct);
+                // Define a quantidade inicial para 1, se houver estoque
+                setSelectedQty(estoqueInicial > 0 ? 1 : 0);
 
             } catch (error) {
-                console.error('Erro ao carregar dados do produto:', error);
+                console.error('Erro ao buscar detalhes do produto:', error);
+                Alert.alert("Erro de Conexão", "Não foi possível carregar os detalhes do produto.");
             } finally {
                 setLoading(false);
             }
         };
 
-        if (id) {
-            loadData();
-        } else {
-            setLoading(false);
-        }
+        loadProductDetails();
     }, [id]);
 
-    const getFarmaciaName = (farmaciaId: string): string => {
-        const farmacia = farmacias.find(f => f.id === farmaciaId);
-        return farmacia ? farmacia.name : 'Farmácia Desconhecida';
+    // NOVO: Lógica para alterar a quantidade selecionada
+    const handleQtyChange = (delta: number) => {
+        setSelectedQty(prevQty => {
+            const newQty = prevQty + delta;
+            const maxStock = produto?.quantidade_estoque || 0;
+            
+            // Não permite quantidade menor que 1
+            if (newQty < 1) return 1;
+            // Não permite quantidade maior que o estoque
+            if (newQty > maxStock) return maxStock;
+            
+            return newQty;
+        });
     };
 
     // --- Lógica de Carregamento e Erro ---
     if (loading) {
         return (
-            <View style={[styles.container, { justifyContent: 'center' } as ViewStyle]}>
+            <View style={[styles.container, { justifyContent: 'center' }]}>
                 <ActivityIndicator size="large" color="#24BF38" />
                 <Text style={{ marginTop: 10, color: '#555' }}>Buscando detalhes...</Text>
             </View>
@@ -109,91 +123,132 @@ export default function ProductDetails() {
 
     if (!produto) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.error}>Produto não encontrado ou ID inválido.</Text>
-                <TouchableOpacity style={[styles.button, { marginTop: 20, backgroundColor: '#FF6F00' } as ViewStyle]} onPress={() => router.back()}>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={styles.error}>Produto não encontrado ou ID inválido ({id}).</Text>
+                <TouchableOpacity style={[styles.button, { marginTop: 20, backgroundColor: '#FF6F00', width: '80%' }]} onPress={() => router.back()}>
                     <Text style={styles.buttonText}>Voltar</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    // --- Lógica de Preços e Desconto ---
     const precoOriginal = produto.price;
     const precoFinal = produto.discount
         ? produto.price * (1 - produto.discount)
         : produto.price;
+        
+    const imageUrl = produto.imagem_url || 'https://via.placeholder.com/200/cccccc/333333?text=Sem+Imagem';
+    const estoque = produto.quantidade_estoque;
 
-    // --- Lógica do Carrinho ---
+    // --- Lógica do Carrinho CORRIGIDA ---
     const handleAddToCart = () => {
+        if (selectedQty < 1) {
+             Alert.alert("Erro", "Selecione pelo menos 1 item para adicionar à cesta.");
+             return;
+        }
+
         const cartItem: CartItem = {
             id: produto.id,
             name: produto.name,
             price: precoFinal,
-            image: produto.image,
-            qty: 1, // Adiciona 1 unidade por padrão
+            image: imageUrl, 
+            qty: selectedQty, // USANDO A QUANTIDADE SELECIONADA
         };
         add(cartItem);
-        // Opcional: Feedback ao usuário ou navegação
-        router.push('/cliente/Cart');
+        Alert.alert("Sucesso", `${selectedQty}x ${produto.name} adicionado(s) à cesta!`);
+        
+        // NOVO: Navega para o carrinho após adicionar
+        router.push('/cliente/Cart'); 
     };
 
     // --- Renderização Principal ---
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.imageContainer as ViewStyle}>
+            <View style={styles.imageContainer}>
                 <Image
-                    // Usa o mapeamento de require para carregar a imagem local
-                    source={ProductImages[produto.image] || { uri: 'https://placehold.co/200x200/cccccc/333333?text=Sem+Imagem' }}
-                    style={styles.image as ImageStyle}
+                    source={{ uri: imageUrl }}
+                    style={styles.image}
                     resizeMode="contain"
                 />
                 {produto.discount && (
-                    <View style={styles.badgeDiscount as ViewStyle}>
-                        <Text style={styles.badgeText as TextStyle}>-{Math.round(produto.discount * 100)}%</Text>
+                    <View style={styles.badgeDiscount}>
+                        <Text style={styles.badgeText}>-{Math.round(produto.discount * 100)}%</Text>
                     </View>
                 )}
             </View>
 
-            <View style={styles.detailsBlock as ViewStyle}>
-                <Text style={styles.name as TextStyle}>{produto.name}</Text>
+            <View style={styles.detailsBlock}>
+                <Text style={styles.name}>{produto.name}</Text>
                 
                 {/* Informações da Farmácia */}
-                <View style={styles.farmaciaRow as ViewStyle}>
+                <View style={styles.farmaciaRow}>
                     <Ionicons name="storefront-outline" size={16} color="#666" />
-                    <Text style={styles.farmacia as TextStyle}>{getFarmaciaName(produto.farmaciaId)}</Text>
+                    <Text style={styles.farmacia}>{produto.nome_farmacia}</Text>
                 </View>
 
-                {/* Bloco de Preço */}
-                <View style={styles.priceBlock as ViewStyle}>
+                {/* Bloco de Preço e Estoque */}
+                <View style={styles.priceBlock}>
                     {produto.discount ? (
-                        <View style={styles.priceRow as ViewStyle}>
-                            <Text style={styles.priceOriginal as TextStyle}>R$ {precoOriginal.toFixed(2)}</Text>
-                            <Text style={styles.price as TextStyle}>R$ {precoFinal.toFixed(2)}</Text>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceOriginal}>R$ {precoOriginal.toFixed(2).replace('.', ',')}</Text>
+                            <Text style={styles.price}>R$ {precoFinal.toFixed(2).replace('.', ',')}</Text>
                         </View>
                     ) : (
-                        <Text style={[styles.price, { fontSize: 24, fontWeight: '700' } as TextStyle]}>R$ {precoFinal.toFixed(2)}</Text>
+                        <Text style={[styles.price, { fontSize: 24, fontWeight: '700' }]}>R$ {precoFinal.toFixed(2).replace('.', ',')}</Text>
                     )}
-                    <View style={styles.stockRow as ViewStyle}>
-                        <MaterialCommunityIcons name="check-circle" size={14} color="#24BF38" />
-                        <Text style={styles.stockText as TextStyle}> {produto.stock} unidades em estoque</Text>
+                    
+                    {/* Estoque */}
+                    <View style={styles.stockRow}>
+                        <MaterialCommunityIcons name="check-circle" size={14} color={estoque > 0 ? "#24BF38" : "#FF6F00"} />
+                        <Text style={[styles.stockText, { color: estoque > 0 ? "#24BF38" : "#FF6F00" }]}> 
+                            {estoque} unidades em estoque
+                        </Text>
                     </View>
                 </View>
 
+                {/* NOVO: Controles de Quantidade */}
+                {estoque > 0 && (
+                    <View style={styles.quantityControlContainer}>
+                        <Text style={styles.sectionTitle}>Quantidade</Text>
+                        <View style={styles.quantitySelector}>
+                            <TouchableOpacity 
+                                style={[styles.quantityButton, selectedQty <= 1 && {backgroundColor: '#ccc'}]} 
+                                onPress={() => handleQtyChange(-1)} 
+                                disabled={selectedQty <= 1}
+                            >
+                                <Text style={styles.quantityButtonText}>-</Text>
+                            </TouchableOpacity>
+                            
+                            <Text style={styles.quantityText}>{selectedQty}</Text>
+                            
+                            <TouchableOpacity 
+                                style={[styles.quantityButton, selectedQty >= estoque && {backgroundColor: '#ccc'}]}
+                                onPress={() => handleQtyChange(1)} 
+                                disabled={selectedQty >= estoque}
+                            >
+                                <Text style={styles.quantityButtonText}>+</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
                 {/* Descrição */}
-                <Text style={styles.sectionTitle as TextStyle}>Detalhes do Produto</Text>
-                <Text style={styles.description as TextStyle}>
-                    {produto.description || 'Sem descrição detalhada disponível.'}
+                <Text style={styles.sectionTitle}>Detalhes do Produto</Text>
+                <Text style={styles.description}>
+                    {produto.description}
                 </Text>
             </View>
 
-
             <TouchableOpacity
-                style={styles.button as ViewStyle}
+                // Cor do botão baseada na disponibilidade
+                style={[styles.button, { backgroundColor: estoque > 0 ? '#24BF38' : '#ccc' }]}
                 onPress={handleAddToCart}
+                disabled={estoque === 0 || selectedQty === 0}
             >
                 <Ionicons name="cart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.buttonText as TextStyle}>Adicionar à cesta</Text>
+                <Text style={styles.buttonText}>
+                    {estoque > 0 ? `Adicionar ${selectedQty} à cesta` : "Produto indisponível"}
+                </Text>
             </TouchableOpacity>
 
         </ScrollView>
@@ -201,7 +256,7 @@ export default function ProductDetails() {
 }
 
 // =======================================================
-// ESTILOS
+// ESTILOS (Adicionado estilos para a seção de quantidade)
 // =======================================================
 const styles = StyleSheet.create({
     container: {
@@ -209,8 +264,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#F6FFF6',
         flexGrow: 1,
     },
-    
-    // Imagem e Badge
     imageContainer: {
         width: '100%',
         height: 250,
@@ -244,8 +297,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 12,
     },
-
-    // Detalhes
     detailsBlock: {
         backgroundColor: '#fff',
         padding: 15,
@@ -264,8 +315,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         textAlign: 'left',
     },
-
-    // Farmácia
     farmaciaRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -277,8 +326,6 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         fontWeight: '500',
     },
-
-    // Preços e Estoque
     priceBlock: {
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
@@ -309,11 +356,8 @@ const styles = StyleSheet.create({
     },
     stockText: {
         fontSize: 13,
-        color: '#24BF38',
         marginLeft: 4,
     },
-
-    // Descrição
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
@@ -328,8 +372,39 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         textAlign: 'left',
     },
-
-    // Botão Principal
+    // NOVOS ESTILOS PARA QUANTIDADE
+    quantityControlContainer: {
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        paddingTop: 15,
+        marginBottom: 20,
+    },
+    quantitySelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: 150, // Limita a largura do seletor
+        marginTop: 5,
+    },
+    quantityButton: {
+        backgroundColor: '#24BF38',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    quantityButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    quantityText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    // BOTÃO PRINCIPAL
     button: {
         backgroundColor: '#24BF38',
         paddingVertical: 15,
@@ -344,8 +419,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 18,
     },
-    
-    // Erro
     error: {
         fontSize: 18,
         color: '#FF6347',

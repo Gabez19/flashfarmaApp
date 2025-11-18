@@ -9,25 +9,76 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Alert // Importar Alert
 } from "react-native";
 import { useRouter } from "expo-router";
 
 const LOGO_IMAGE = require("../../../assets/images/logo-flashfarma.png");
 const { width } = Dimensions.get("window");
 const MENU_WIDTH = Math.min(320, Math.round(width * 0.72));
+// !!! ATUALIZE ESTE IP !!!
+const API_URL = 'http://192.168.0.182:3000/produtos'; 
 
 export default function AddProduct() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // ESTADOS ATUALIZADOS para campos da API
   const [name, setName] = useState("");
+  const [farmaciaName, setFarmaciaName] = useState(""); // NOVO CAMPO
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [image, setImage] = useState("");
+  const [quantidadeEstoque, setQuantidadeEstoque] = useState(""); // RENOMEADO (era 'stock')
+  const [image, setImage] = useState(""); // RENOMEADO (era 'image')
+
+  // FUNÇÃO DE CRIAÇÃO (POST)
+  const handleSaveProduct = async () => {
+    // Sanitização e Validação
+    const precoFloat = parseFloat(price.replace(',', '.'));
+    const estoqueInt = parseInt(quantidadeEstoque, 10);
+
+    if (!name || !farmaciaName || !price || isNaN(precoFloat)) {
+      Alert.alert("Erro", "Nome, Nome da Farmácia e Preço são obrigatórios.");
+      return;
+    }
+
+    const newProduct = {
+      nome: name,
+      nome_farmacia: farmaciaName,
+      descricao: description,
+      preco: precoFloat,
+      quantidade_estoque: isNaN(estoqueInt) ? 0 : estoqueInt,
+      imagem_url: image || null,
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newProduct),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.id) {
+        Alert.alert("Sucesso", `Produto "${name}" cadastrado!`);
+        // Limpar formulário ou voltar
+        router.back(); 
+      } else {
+        Alert.alert("Erro", data.erro || "Falha ao cadastrar produto.");
+      }
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor. Verifique o IP e se a API está rodando.");
+    }
+  };
+
 
   return (
     <View style={styles.container}>
+      {/* ... CÓDIGO DO HEADER ... */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Adicionar Produto</Text>
 
@@ -46,6 +97,13 @@ export default function AddProduct() {
             value={name}
             onChangeText={setName}
           />
+          {/* NOVO CAMPO: NOME DA FARMÁCIA */}
+          <TextInput
+            placeholder="Nome Da Farmácia"
+            style={styles.input}
+            value={farmaciaName}
+            onChangeText={setFarmaciaName}
+          />
 
           <TextInput
             placeholder="Descrição"
@@ -58,7 +116,7 @@ export default function AddProduct() {
           <View style={styles.row}>
             <TextInput
               placeholder="Preço"
-              keyboardType="decimal-pad"
+              keyboardType="numeric"
               style={[styles.input, styles.half]}
               value={price}
               onChangeText={setPrice}
@@ -67,8 +125,8 @@ export default function AddProduct() {
               placeholder="Estoque"
               keyboardType="numeric"
               style={[styles.input, styles.half]}
-              value={stock}
-              onChangeText={setStock}
+              value={quantidadeEstoque} // ESTADO ATUALIZADO
+              onChangeText={setQuantidadeEstoque}
             />
           </View>
 
@@ -84,59 +142,62 @@ export default function AddProduct() {
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.saveButton}>
+            {/* CONECTANDO A FUNÇÃO DE SALVAR */}
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}>
               <Text style={styles.saveText}>Salvar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
+      {/* ... CÓDIGO DO MENU (sem alterações) ... */}
       {menuOpen && (
-        <>
-          <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
-          <View style={styles.menu}>
-            <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
-              <Text style={styles.closeX}>✕</Text>
-            </TouchableOpacity>
+         <>
+           <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
+           <View style={styles.menu}>
+             <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
+               <Text style={styles.closeX}>✕</Text>
+             </TouchableOpacity>
 
-            <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
+             <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario");
-              }}
-            >
-              <Text style={styles.menuItemText}>Dashboard</Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario");
+               }}
+             >
+               <Text style={styles.menuItemText}>Dashboard</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario/add-product");
-              }}
-            >
-              <Text style={styles.menuItemText}>Adicionar Produto</Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario/add-product");
+               }}
+             >
+               <Text style={styles.menuItemText}>Adicionar Produto</Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/farmacia/funcionario/edit-product");
-              }}
-            >
-              <Text style={styles.menuItemText}>Editar Produto</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+             <TouchableOpacity
+               style={styles.menuItem}
+               onPress={() => {
+                 setMenuOpen(false);
+                 router.push("/farmacia/funcionario/edit-product");
+               }}
+             >
+               <Text style={styles.menuItemText}>Editar Produto</Text>
+             </TouchableOpacity>
+           </View>
+         </>
       )}
     </View>
   );
 }
 
+// ... CÓDIGO DOS STYLES (sem alterações) ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF", paddingTop: 18, paddingHorizontal: 18 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

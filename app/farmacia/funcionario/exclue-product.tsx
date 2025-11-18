@@ -1,15 +1,52 @@
 // app/farmacia/funcionario/exclue-product.tsx
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, Alert } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const LOGO_IMAGE = require("../../../assets/images/logo-flashfarma.png");
 const { width } = Dimensions.get("window");
 const MENU_WIDTH = Math.min(320, Math.round(width * 0.72));
 
+// !!! ATUALIZE ESTE IP !!!
+const API_URL = 'http://192.168.0.182:3000/produtos'; 
+
 export default function ExclueProductFuncionario() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const productId = params.id as string; 
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  const productName = params.name || `ID: ${productId}`; 
+
+  // FUNÇÃO PARA EXCLUIR O PRODUTO (DELETE)
+  const handleDeleteProduct = async () => {
+    if (!productId) {
+      Alert.alert("Erro", "ID do produto não fornecido.");
+      router.back();
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/${productId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Sucesso", `Produto ${productName} deletado com sucesso!`);
+        // Redireciona para o dashboard ou lista de produtos do funcionário
+        router.replace("/farmacia/funcionario"); 
+      } else {
+        Alert.alert("Erro", data.erro || "Falha ao deletar o produto.");
+      }
+    } catch (error) {
+      console.error('Erro ao deletar produto:', error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -26,7 +63,7 @@ export default function ExclueProductFuncionario() {
 
       {/* CONFIRMAÇÃO */}
       <View style={styles.card}>
-        <Text style={styles.textoMaior}>Tem certeza que deseja excluir este produto?</Text>
+        <Text style={styles.textoMaior}>Tem certeza que deseja excluir o produto {productName}?</Text>
         <Text style={styles.textoMenor}>Esta ação não poderá ser desfeita.</Text>
 
         <View style={styles.buttonsRow}>
@@ -36,14 +73,14 @@ export default function ExclueProductFuncionario() {
 
           <TouchableOpacity
             style={styles.botaoExcluir}
-            onPress={() => router.push("/farmacia/funcionario/edit-product")}
+            onPress={handleDeleteProduct} // CONECTADO À FUNÇÃO DE EXCLUSÃO
           >
             <Text style={styles.txtExcluir}>Excluir</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* SIDE MENU */}
+      {/* SIDE MENU (inalterado) */}
       {menuOpen && (
         <>
           <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
@@ -81,9 +118,9 @@ const styles = StyleSheet.create({
   bar: { width: 22, height: 2, backgroundColor: "#2D2D2D", marginVertical: 2, borderRadius: 2 },
 
   card: { marginTop: 40, padding: 24, borderRadius: 12, borderWidth: 1, borderColor: "#E5E5E5" },
-  textoMaior: { fontSize: 18, fontWeight: "600", marginBottom: 10 },
-  textoMenor: { fontSize: 14, color: "#555", marginBottom: 30 },
-  buttonsRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+  textoMaior: { fontSize: 18, fontWeight: "600", marginBottom: 10, textAlign: 'center' },
+  textoMenor: { fontSize: 14, color: "#555", marginBottom: 30, textAlign: 'center' },
+  buttonsRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 10 },
   cancelar: { fontSize: 16, color: "#666" },
   botaoExcluir: { backgroundColor: "#E53935", paddingVertical: 12, paddingHorizontal: 28, borderRadius: 6 },
   txtExcluir: { color: "#FFF", fontWeight: "600" },

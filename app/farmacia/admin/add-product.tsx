@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from "react"; // CORRIGIDO: => trocado por from
 import {
   View,
   Text,
@@ -8,35 +8,97 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Alert
 } from "react-native";
 import { useRouter } from "expo-router";
 
 const LOGO_IMAGE = require("../../../assets/images/logo-flashfarma.png");
+// !!! ATUALIZE ESTE IP !!!
+const API_URL = 'http://192.168.0.182:3000/produtos';
 
 export default function AddProduct() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // ESTADOS ATUALIZADOS para campos da API
   const [name, setName] = useState("");
+  const [farmaciaName, setFarmaciaName] = useState(""); 
   const [desc, setDesc] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [category, setCategory] = useState("");
+  const [quantidadeEstoque, setQuantidadeEstoque] = useState(""); 
   const [imageData, setImageData] = useState("");
+  
+  // FUNÇÃO DE CRIAÇÃO (POST)
+  const handleSaveProduct = async () => {
+    // 2.1. Sanitização e Validação
+    const precoFloat = parseFloat(price.replace(',', '.'));
+    const estoqueInt = parseInt(quantidadeEstoque, 10);
+
+    if (!name || !farmaciaName || !price || isNaN(precoFloat)) {
+      Alert.alert("Erro", "Nome, Nome da Farmácia e Preço são obrigatórios.");
+      return;
+    }
+
+    const newProduct = {
+      nome: name,
+      nome_farmacia: farmaciaName,
+      descricao: desc,
+      preco: precoFloat,
+      quantidade_estoque: isNaN(estoqueInt) ? 0 : estoqueInt,
+      imagem_url: imageData || null,
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newProduct),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.id) {
+        Alert.alert("Sucesso", `Produto "${name}" criado com sucesso!`);
+        // Limpar formulário ou voltar
+        router.back(); 
+      } else {
+        Alert.alert("Erro", data.erro || "Falha ao cadastrar produto.");
+      }
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor. Verifique o IP e se a API está rodando.");
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Adicionar Produto</Text>
-        <TouchableOpacity style={styles.hamburger} onPress={() => setMenuOpen(true)}>
-          <View style={styles.bar} />
-          <View style={[styles.bar, { width: 18 }]} />
-          <View style={[styles.bar, { width: 14 }]} />
-        </TouchableOpacity>
+         <Text style={styles.headerTitle}>Adicionar Produto</Text>
+         <TouchableOpacity style={styles.hamburger} onPress={() => setMenuOpen(true)}>
+           <View style={styles.bar} />
+           <View style={[styles.bar, { width: 18 }]} />
+           <View style={[styles.bar, { width: 14 }]} />
+         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.card}>
-          <TextInput placeholder="Nome Do Produto" style={styles.input} value={name} onChangeText={setName} />
+          <TextInput 
+            placeholder="Nome Do Produto" 
+            style={styles.input} 
+            value={name} 
+            onChangeText={setName} 
+          />
+          {/* NOVO CAMPO: NOME DA FARMÁCIA */}
+          <TextInput 
+            placeholder="Nome Da Farmácia" 
+            style={styles.input} 
+            value={farmaciaName} 
+            onChangeText={setFarmaciaName} 
+          />
+          
           <TextInput
             placeholder="Descrição"
             style={[styles.input, { height: 100, textAlignVertical: "top" }]}
@@ -45,15 +107,25 @@ export default function AddProduct() {
             onChangeText={setDesc}
           />
           <View style={styles.row}>
-            <TextInput placeholder="Preço" style={[styles.input, styles.half]} value={price} onChangeText={setPrice} />
-            <TextInput placeholder="Estoque" style={[styles.input, styles.half]} value={stock} onChangeText={setStock} />
+            <TextInput 
+              placeholder="Preço" 
+              style={[styles.input, styles.half]} 
+              keyboardType="numeric"
+              value={price} 
+              onChangeText={setPrice} 
+            />
+            <TextInput 
+              placeholder="Estoque" 
+              style={[styles.input, styles.half]} 
+              keyboardType="numeric"
+              value={quantidadeEstoque}
+              onChangeText={setQuantidadeEstoque} 
+            />
           </View>
-          <TextInput placeholder="Categoria" style={styles.input} value={category} onChangeText={setCategory} />
-          <Text style={styles.label}>Imagem Do Produto</Text>
+          <Text style={styles.label}>URL da Imagem Do Produto</Text>
           <TextInput
-            placeholder="URL ou Base64"
-            style={[styles.input, { height: 150, textAlignVertical: "top" }]}
-            multiline
+            placeholder="URL da Imagem (Ex: https://...)"
+            style={styles.input}
             value={imageData}
             onChangeText={setImageData}
           />
@@ -62,37 +134,40 @@ export default function AddProduct() {
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton}>
+            {/* CONECTANDO A FUNÇÃO DE SALVAR */}
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}> 
               <Text style={styles.saveText}>Salvar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
+      {/* CÓDIGO DO MENU (sem alterações) */}
       {menuOpen && (
-        <>
-          <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
-          <View style={styles.menu}>
-            <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
-              <Text style={styles.closeX}>✕</Text>
-            </TouchableOpacity>
-            <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
-            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-catalog");}}>
-              <Text style={styles.menuItemText}>Gerenciar Catálogo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/order-list");}}>
-              <Text style={styles.menuItemText}>Gerenciar Pedidos</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-users");}}>
-              <Text style={styles.menuItemText}>Gerenciar Usuários</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+         <>
+           <TouchableOpacity style={styles.backdrop} onPress={() => setMenuOpen(false)} />
+           <View style={styles.menu}>
+             <TouchableOpacity style={styles.menuClose} onPress={() => setMenuOpen(false)}>
+               <Text style={styles.closeX}>✕</Text>
+             </TouchableOpacity>
+             <Image source={LOGO_IMAGE} style={styles.menuLogo} resizeMode="contain" />
+             <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-catalog");}}>
+               <Text style={styles.menuItemText}>Gerenciar Catálogo</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/order-list");}}>
+               <Text style={styles.menuItemText}>Gerenciar Pedidos</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.menuItem} onPress={() => {setMenuOpen(false);router.push("/farmacia/admin/manage-users");}}>
+               <Text style={styles.menuItemText}>Gerenciar Usuários</Text>
+             </TouchableOpacity>
+           </View>
+         </>
       )}
     </View>
   );
 }
 
+// ... CÓDIGO DOS STYLES ...
 const { width } = Dimensions.get("window");
 const MENU_WIDTH = Math.min(320, Math.round(width * 0.72));
 
